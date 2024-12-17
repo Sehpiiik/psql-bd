@@ -4,8 +4,8 @@ from imports import *
 
 
 class Application:
-    window_width = 1200
-    window_height = 500
+    window_width = 1000
+    window_height = 600
 
     def __init__(self, root):
         self.root = root
@@ -47,7 +47,7 @@ class Application:
                     session.commit()
                 messagebox.showerror("Error::code 1", "Ошибка при создании базы данных. Удаляю существующую")
         except:
-           messagebox.showerror("Error::code 0", "Неверные данные подключения")
+            messagebox.showerror("Error::code 0", "Неверные данные подключения")
 
     def manipulate_db_frame(self):
         try:
@@ -84,6 +84,186 @@ class Application:
             label_update.pack(anchor="n", pady=15)
             button_update = ttk.Button(main_frame, text="", width=10, command=self.update_select_frame)
             button_update.pack(anchor="n", pady=0)
+
+            label_search = ttk.Label(main_frame, text='Поиск по заранее выбранному текстовому не ключевому полю',
+                                     font=("Arial", 12))
+            label_search.pack(anchor="n", pady=15)
+            button_search = ttk.Button(main_frame, text="", width=10, command=self.search_frame)
+            button_search.pack(anchor="n", pady=0)
+
+            label_delete_i = ttk.Label(main_frame, text='Удаление по заранее выбранному текстовому не ключевому полю',
+                                     font=("Arial", 12))
+            label_delete_i.pack(anchor="n", pady=15)
+            label_delete_i = ttk.Button(main_frame, text="", width=10, command=self.del_i_frame)
+            label_delete_i.pack(anchor="n", pady=0)
+
+            label_delete_def = ttk.Label(main_frame, text='Удаление конкретной записи, выбранной пользователем',
+                                       font=("Arial", 12))
+            label_delete_def.pack(anchor="n", pady=15)
+            label_delete_def = ttk.Button(main_frame, text="", width=10, command=self.del_def_select)
+            label_delete_def.pack(anchor="n", pady=0)
+
+    def del_def_select(self):
+        self.clear_window()
+        position = {'padx': 6, 'pady': 6, 'anchor': NW}
+        del_def_select = ttk.Frame(self.root)
+        del_def_select.pack(fill=BOTH)
+        label_select_insert = ttk.Label(del_def_select, text='Выберите, из какой таблицы вы хотите удалить данные',
+                                        font=("Arial", 12))
+        label_select_insert.pack(anchor="n", pady=15)
+
+        select = StringVar()
+
+        table1_btn = ttk.Radiobutton(del_def_select, text="list_of_films", value="list_of_films", variable=select)
+        table1_btn.pack(**position)
+
+        table2_btn = ttk.Radiobutton(del_def_select, text="artists", value="artists", variable=select)
+        table2_btn.pack(**position)
+
+        table3_btn = ttk.Radiobutton(del_def_select, text="film_genres", value="film_genres", variable=select)
+        table3_btn.pack(**position)
+
+        table4_btn = ttk.Radiobutton(del_def_select, text="film_roles", value="film_roles", variable=select)
+        table4_btn.pack(**position)
+
+        button_select = ttk.Button(del_def_select, text="Выбрать", width=10,
+                                   command=lambda: self.del_def(select))
+        button_select.pack(anchor="n", pady=0)
+
+        button_back = ttk.Button(del_def_select, text="Вернуться назад", width=20,
+                                 command=lambda: self.manipulate_db_frame())
+        button_back.pack(anchor="nw")
+
+    def del_def(self,select):
+        if select.get() == '':
+            messagebox.showerror("Error::code 4", "Выберите хотя бы 1 таблицу")
+        else:
+            try:
+                engine = create_engine(f'postgresql+psycopg://{user}:{password}@{host}/{db_name}', echo=True)
+            except:
+                messagebox.showerror("Error::code 0", "Неверные данные подключения")
+                self.create_db_frame()
+            metadata = MetaData()
+            metadata.reflect(bind=engine)
+            remaining_tables = metadata.tables.keys()
+            if select.get() not in remaining_tables:
+                messagebox.showerror("Error::code 4", "Такой таблицы нет")
+            else:
+                self.clear_window()
+                del_def_frame = ttk.Frame(self.root)
+                del_def_frame.pack(fill=BOTH)
+
+                table_name = metadata.tables[select.get()]
+                columns = table_name.columns.keys()
+                id_name = columns[0]
+                columns.pop(0)
+
+
+                id_select_label = ttk.Label(del_def_frame,
+                                            text=f"Введите значение {id_name}, которое вы хотите удалить",
+                                            font=("Arial", 12))
+                id_select_label.pack(anchor="nw")
+                id_entry = ttk.Entry(del_def_frame, width=100, justify=LEFT, font=("Arial", 12))
+                id_entry.pack(anchor="nw")
+
+                button_up = ttk.Button(del_def_frame, text="Удалить", width=20,
+                                       command=lambda: self.delete(select.get(), id_name, id_entry.get()))
+                button_up.pack(anchor="nw")
+
+                button_back = ttk.Button(del_def_frame, text="Вернуться назад", width=20,
+                                         command=lambda: self.del_def_select())
+                button_back.pack(anchor="nw")
+
+    def delete(self, table_name, id_name, id_entry):
+        try:
+            engine = create_engine(f'postgresql+psycopg://{user}:{password}@{host}/{db_name}', echo=True)
+            try:
+                Session = sessionmaker(bind=engine)
+                with Session() as session:
+                    session.execute(text(
+                        f"SELECT delete_by_def('{table_name}','{id_name}','{id_entry}');"))
+                    session.commit()
+                messagebox.showinfo("Ура", "Удаление прошло успешно")
+            except:
+                messagebox.showerror("Error::code 2", "Ошибка при удалении")
+        except:
+            messagebox.showerror("Error::code 0", "Неверные данные подключения")
+    def del_i_frame(self):
+        self.clear_window()
+        del_i_frame = ttk.Frame(self.root)
+        del_i_frame.pack(fill=BOTH)
+        label_search = ttk.Label(del_i_frame,
+                                 text='Напишите название фильма, который вы хотите удалить',
+                                 font=("Arial", 12))
+        label_search.pack(anchor="n", pady=15)
+
+        entry = ttk.Entry(del_i_frame, width=50, justify=LEFT, font=("Arial", 12))
+        entry.pack(anchor="n", pady=15)
+
+        button_del_i = ttk.Button(del_i_frame, text="Удалить", width=10,
+                                   command=lambda: self.del_i(entry.get()))
+        button_del_i.pack(anchor="n", pady=0)
+
+        button_back = ttk.Button(del_i_frame, text="Вернуться назад", width=20,
+                                 command=lambda: self.manipulate_db_frame())
+        button_back.pack(anchor="nw")
+
+    def del_i(self, entry):
+        try:
+            engine = create_engine(f'postgresql+psycopg://{user}:{password}@{host}/{db_name}', echo=True)
+            try:
+                Session = sessionmaker(bind=engine)
+                with Session() as session:
+                    session.execute(text(
+                    f"SELECT delete_by_index('{entry}');"))
+                    session.commit()
+                messagebox.showinfo("Ура", "Удаление прошло успешно")
+            except:
+                messagebox.showerror("Error::code 2", "Ошибка при удалении")
+        except:
+            messagebox.showerror("Error::code 0", "Неверные данные подключения")
+
+    def search_frame(self):
+        self.clear_window()
+        search_frame = ttk.Frame(self.root)
+        search_frame.pack(fill=BOTH)
+        label_search = ttk.Label(search_frame,
+                                 text='Напишите название фильма, информацию по которому вы хотите получить',
+                                 font=("Arial", 12))
+        label_search.pack(anchor="n", pady=15)
+
+        entry = ttk.Entry(search_frame, width=50, justify=LEFT, font=("Arial", 12))
+        entry.pack(anchor="n", pady=15)
+
+        button_search = ttk.Button(search_frame, text="Найти", width=10,
+                                   command=lambda: self.search(entry.get()))
+        button_search.pack(anchor="n", pady=0)
+
+        button_back = ttk.Button(search_frame, text="Вернуться назад", width=20,
+                                 command=lambda: self.manipulate_db_frame())
+        button_back.pack(anchor="nw")
+
+    def search(self, entry):
+        try:
+            engine = create_engine(f'postgresql+psycopg://{user}:{password}@{host}/{db_name}', echo=True)
+            try:
+                Session = sessionmaker(bind=engine)
+                with Session() as session:
+                    data = session.execute(text(
+                    f"SELECT search_by_index('{entry}');"))
+                    session.commit()
+                rows=[]
+                for row in data:
+                    rows.append(row)
+                file = open("search_results.txt", "a", encoding='utf-8')
+                for row in rows:
+                    file.write(f'Результат: {row}\n')
+                file.close()
+                messagebox.showinfo("Ура", "Поиск прошел успешно.Информация по фильму была записана в search_results.txt")
+            except:
+                messagebox.showerror("Error::code 2", "Ошибка при поиске")
+        except:
+            messagebox.showerror("Error::code 0", "Неверные данные подключения")
 
     def delete_db_frame(self):
         self.clear_window()
@@ -150,7 +330,7 @@ class Application:
                 messagebox.showerror("Error::code 2", "Ошибка при удалении")
         except:
             messagebox.showerror("Error::code 0", "Неверные данные подключения")
-            
+
     def select_frame(self):
         self.clear_window()
         position = {'padx': 6, 'pady': 6, 'anchor': NW}
@@ -394,14 +574,14 @@ class Application:
                 id_entry.pack(anchor="nw")
 
                 button_up = ttk.Button(updating_frame, text="Обновить", width=20,
-                                        command=lambda: self.update_raw(select.get(), widgets,id_name,id_entry.get()))
+                                       command=lambda: self.update_raw(select.get(), widgets, id_name, id_entry.get()))
                 button_up.pack(anchor="nw")
 
                 button_back = ttk.Button(updating_frame, text="Вернуться назад", width=20,
                                          command=lambda: self.update_select_frame())
                 button_back.pack(anchor="nw")
 
-    def update_raw(self, table_name, widgets,id_name,id_entry):
+    def update_raw(self, table_name, widgets, id_name, id_entry):
         try:
             engine = create_engine(f'postgresql+psycopg://{user}:{password}@{host}/{db_name}', echo=True)
             try:
@@ -428,7 +608,6 @@ class Application:
         except:
             messagebox.showerror("Error::code 0", "Неверные данные подключения")
             self.create_db_frame()
-
 
     def clear_window(self):
         for widget in self.root.winfo_children():
